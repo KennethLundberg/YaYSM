@@ -1,15 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace YaYSM
 {
     class Program
     {
         public static readonly int MAX_INSTRUCTIONS = 512;
-        static List<int> intermediateLanguage = new List<int>();
-        static Dictionary<string, int> symbolTable = new Dictionary<string, int>();
-        static Dictionary<string, int> instructionTable = new Dictionary<string, int>();
 
         static int curIntermediateNumber = 0;
         static int instructionNumber = 0;
@@ -21,56 +19,85 @@ namespace YaYSM
             var rawAssemblyLines = File.ReadLines(path);
 
             // Remove comments, create symbol table, create IL mapping, create instruction table.
-            FirstPass(rawAssemblyLines);
+            List<string> noComments = RemoveComments(rawAssemblyLines);
+            FirstPass(noComments);
             SecondPass();
+            OutputResults();
         }
 
-        private static void SecondPass()
+        private static void OutputResults()
         {
             throw new NotImplementedException();
         }
 
-        private static void FirstPass(IEnumerable<string> rawAssemblyLines)
+        private static List<string> RemoveComments(IEnumerable<string> rawAssemblyLines)
         {
-            foreach (string line in rawAssemblyLines)
+            List<string> noComments = new List<string>();
+            foreach(string line in rawAssemblyLines)
             {
-                string currentLine = line.Trim();
+                string curr = line.Split("#", StringSplitOptions.RemoveEmptyEntries)[0].Trim();
+                if (!string.IsNullOrEmpty(curr)) noComments.Add(curr);
+            }
+            return noComments;
+        }
 
-                // This line is a comment or empty, ignore it.
-                if (currentLine.StartsWith('#') || currentLine.Length == 0)
+        private static void SecondPass()
+        {
+            List<Instruction> converted = new List<Instruction>();
+            foreach (string rawInstruction in rawBank)
+            {
+                string code = rawInstruction.Trim().Substring(0, 3).ToUpper();
+                if (Literals.OpCodes.ContainsKey(code))
                 {
-                    continue;
+                    converted.Add(new DataProcessing(rawInstruction));
                 }
-                // Is the line a label?
-                else if (currentLine.Contains(":"))
+                else if (Literals.LoadStore.ContainsKey(code))
                 {
-                    // Labels refrence the NEXT instruction, so should map to curr + 1
-                    if (!symbolTable.TryAdd(currentLine.Trim(':'), curIntermediateNumber + 1))
-                    {
-                        Console.Error.WriteLine("Hey! You can't have the same jump label more than once!");
-                        return;
-                    }
+                    converted.Add(new LoadStore(rawInstruction));
                 }
-                // At this point, it better be an instruction!
+                else if (Literals.Branches.ContainsKey(code))
+                {
+                    string jumpLiteral = rawInstruction.Substring(3).Trim();
+                    int location = labelToIndex[jumpLiteral];
+                    converted.Add(new Branch(rawInstruction, location));
+                }
                 else
                 {
-                    ++curIntermediateNumber;
+                    converted.Add(new Yay());
+                }
+            }
+        }
 
-                    // Try and add the instruction.
-                    if (instructionTable.TryAdd(currentLine, instructionNumber))
+        public static List<int> instructionList = new List<int>();
+        public static Dictionary<string, int> labelToIndex = new Dictionary<string, int>();
+        public static List<string> rawBank = new List<string>();
+
+        private static void FirstPass(List<string> rawAssemblyLines)
+        {
+
+            int instructionIndex = 0, bankIndex = 0;
+            for (int i = 0; i < rawAssemblyLines.Count; i++)
+            {
+                string currentLine = rawAssemblyLines[i];
+                if (currentLine.Contains(":"))
+                {
+                    string newLabel = currentLine.Split(':')[0].Trim();
+                    labelToIndex[newLabel] = instructionIndex + 1;
+                }
+                else
+                {
+                    if(rawBank.Contains(currentLine))
                     {
-
-                        // Looks like we found a new instruction, but by adding it have we gone over our limit?
-                        if (instructionNumber > MAX_INSTRUCTIONS)
-                        {
-                            Console.Error.WriteLine($"You have more than {MAX_INSTRUCTIONS} instructions, optimize your YaYSM!");
-                            return;
-                        }
-
-                        instructionNumber++;
+                        instructionList[instructionIndex] = rawBank.IndexOf(currentLine);
+                        instructionIndex++;
                     }
-                    // Either we just added the instruction or it was already there, either way time to map it!.
-                    intermediateLanguage.Add(instructionTable[currentLine]);
+                    else
+                    {
+                        rawBank[bankIndex] = currentLine;
+                        instructionList[instructionIndex] = bankIndex;
+                        bankIndex++;
+                        instructionIndex++;
+                    }
                 }
             }
         }
