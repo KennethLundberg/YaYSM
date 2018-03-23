@@ -17,69 +17,56 @@ namespace YaYSM
 
     class DataProcessing : Instruction
     {
-        private static readonly string Prefix = "0000000";
+        private static readonly string Prefix = "000000";
         public DataProcessing(string instruction)
         {
             string[] insPieces = instruction.Split(" ",2);
             string opcode = Literals.OpCodes[insPieces[0].ToUpper()];
             string s = "1";
+            string I = "0";
             OperationType type = Literals.GetOperation(insPieces[0].ToUpper());
             string rd = "r15", rn = "r15", rs = "r15", imm = "00000000";
-            int numFinished = 0;
-            foreach (string piece in insPieces[1].Split(','))
+            //Compare is weird because it doesn't have an rd, add it anyways because it isn't used.
+            if(opcode.Equals("1000"))
             {
-                var curr = piece.Trim();
-                if(type.HasFlag(OperationType.Rd) && numFinished < 1)
-                {
-                    rd = curr;
-                }
-                if(numFinished == 0)
-                {
-                    numFinished++;
-                    continue;
-                }
-                if (type.HasFlag(OperationType.Rn) && numFinished < 2)
-                {
-                    if (Int32.TryParse(curr[0].ToString(), out int dead))
-                    {
-                        rn = "r15";
-                        imm = Literals.IntToBinaryString(Int32.Parse(curr));
-                        break;
-                    }
-                    else if(curr.Contains("+"))
-                    {
-                        var split = curr.Split('+');
-                        rn = split[0];
-                        imm = Literals.IntToBinaryString(Int32.Parse(split[1]));
-                        break;
-                    }
-                    
-                }
-                if (numFinished == 1)
-                {
-                    numFinished++;
-                    continue;
-                }
-                if (type.HasFlag(OperationType.Rs) && numFinished < 3)
-                {
-                    // If it's an int, theres no Rs
-                    if (Int32.TryParse(curr[0].ToString(), out int dead))
-                    {
-                        rs = "r15";
-                        imm = Literals.IntToBinaryString(Int32.Parse(curr));
-                        break;
-                    }
-                    else
-                    {
-                        var split = curr.Split('+');
-                        rs = split[0];
-                        if (split.Length == 2) imm = Literals.IntToBinaryString(Int32.Parse(split[1]));
-                    }
-                    break;
-                }
-                
+                insPieces[1] = "r15," + insPieces[1];
             }
-            _operation = Prefix + opcode + s + Literals.Registers[rn] + Literals.Registers[rd] + Literals.Registers[rs] + imm;
+            string[] registers = insPieces[1].Split(',');
+            if(type.HasFlag(OperationType.Rd))
+            {
+                rd = registers[0];
+            }
+            if(type.HasFlag(OperationType.Rn))
+            {
+                if (Int32.TryParse(registers[1].ToString(), out int immInt))
+                {
+                    rn = "r15";
+                    imm = Literals.IntToBinaryString(immInt);
+                    I = "1";
+                }
+                else
+                {
+                    rn = registers[1];
+                }
+            }
+            if(type.HasFlag(OperationType.Rs) || type.HasFlag(OperationType.Imm))
+            {
+                if (!type.HasFlag(OperationType.Rs) && registers.Length == 2)
+                {
+                    //Do nothing, we already did it in the last step
+                }
+                else if (Int32.TryParse(registers[2].ToString(), out int immInt))
+                {
+                    rs = "r15";
+                    imm = Literals.IntToBinaryString(immInt);
+                    I = "1";
+                }
+                else
+                {
+                    rs = registers[2];
+                }
+            }
+            _operation = Prefix + I + opcode + s + Literals.Registers[rn] + Literals.Registers[rd] + Literals.Registers[rs] + imm;
         }
     }
 
@@ -89,7 +76,7 @@ namespace YaYSM
         public Branch(string instruction, int jumpLocation)
         {
             string cond, condBinary;
-            cond = instruction.Split(" ", 1)[0];
+            cond = instruction.Split(" ", 2)[0].Trim().ToUpper();
             condBinary = Literals.Branches[cond];
             _operation = condBinary + TypeOp + Literals.IntToBinaryString(jumpLocation, 24);
         }
@@ -150,7 +137,7 @@ namespace YaYSM
                     }
                 }
             }
-            _operation = Prefix + l + rd + rn + imm;
+            _operation = Prefix + l + rn + rd + imm;
         }
 
     }
@@ -159,7 +146,7 @@ namespace YaYSM
     {
         public override string ToString()
         {
-            return "0000111000000000000000000000000";
+            return "00001110000000000000000000000000";
         }
     }
 }

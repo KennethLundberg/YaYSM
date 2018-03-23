@@ -15,19 +15,22 @@ namespace YaYSM
         static void Main(string[] args)
         {
 
-            string path = @"";
+            string path = @"C:\Users\maxlu\Desktop\141L\input.txt";
             var rawAssemblyLines = File.ReadLines(path);
 
             // Remove comments, create symbol table, create IL mapping, create instruction table.
             List<string> noComments = RemoveComments(rawAssemblyLines);
             FirstPass(noComments);
-            SecondPass();
-            OutputResults();
+            List<Instruction> finalBank = SecondPass();
+            OutputResults(finalBank, instructionList);
         }
 
-        private static void OutputResults()
+        private static void OutputResults(List<Instruction> finalBank, List<int> finalInstruction)
         {
-            throw new NotImplementedException();
+            List<string> convertedInstruction = finalInstruction.Select(i => Literals.IntToBinaryString(i, 9)).ToList();
+            List<string> bankString = finalBank.Select(b => b.ToString()).ToList();
+            File.WriteAllLines(@"C:\Users\maxlu\Desktop\141L\ninebit.txt", convertedInstruction);
+            File.WriteAllLines(@"C:\Users\maxlu\Desktop\141L\bank.txt", bankString);
         }
 
         private static List<string> RemoveComments(IEnumerable<string> rawAssemblyLines)
@@ -41,7 +44,7 @@ namespace YaYSM
             return noComments;
         }
 
-        private static void SecondPass()
+        private static List<Instruction> SecondPass()
         {
             List<Instruction> converted = new List<Instruction>();
             foreach (string rawInstruction in rawBank)
@@ -66,11 +69,12 @@ namespace YaYSM
                     converted.Add(new Yay());
                 }
             }
+            return converted;
         }
 
-        public static List<int> instructionList = new List<int>();
+        public static List<int> instructionList = new List<int>(512);
         public static Dictionary<string, int> labelToIndex = new Dictionary<string, int>();
-        public static List<string> rawBank = new List<string>();
+        public static List<string> rawBank = new List<string>(512);
 
         private static void FirstPass(List<string> rawAssemblyLines)
         {
@@ -82,19 +86,19 @@ namespace YaYSM
                 if (currentLine.Contains(":"))
                 {
                     string newLabel = currentLine.Split(':')[0].Trim();
-                    labelToIndex[newLabel] = instructionIndex + 1;
+                    labelToIndex[newLabel] = instructionIndex;
                 }
                 else
                 {
                     if(rawBank.Contains(currentLine))
                     {
-                        instructionList[instructionIndex] = rawBank.IndexOf(currentLine);
+                        instructionList.Insert(instructionIndex, rawBank.IndexOf(currentLine));
                         instructionIndex++;
                     }
                     else
                     {
-                        rawBank[bankIndex] = currentLine;
-                        instructionList[instructionIndex] = bankIndex;
+                        rawBank.Insert(bankIndex,currentLine);
+                        instructionList.Insert(instructionIndex, bankIndex);
                         bankIndex++;
                         instructionIndex++;
                     }
