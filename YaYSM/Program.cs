@@ -29,7 +29,7 @@ namespace YaYSM
         {
             List<string> convertedInstruction = finalInstruction.Select(i => Literals.IntToBinaryString(i, 9)).ToList();
             List<string> bankString = finalBank.Select(b => b.ToString()).ToList();
-            File.WriteAllLines(@"C:\Users\maxlu\Desktop\141L\ninebit.txt", convertedInstruction);
+            File.WriteAllLines(@"C:\Users\maxlu\Desktop\141L\instruction.txt", convertedInstruction);
             File.WriteAllLines(@"C:\Users\maxlu\Desktop\141L\bank.txt", bankString);
         }
 
